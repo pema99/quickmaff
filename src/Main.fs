@@ -7,10 +7,14 @@ open System
 
 [<EntryPoint>]
 let main args =
-  while true do
+  let mutable running = true
+  while running do
     printf "> "
     try
-      printfn "%A" (execute (parse (lex (Console.ReadLine()))))
+      let input = Console.ReadLine()
+      match input with
+      | "exit" | "quit" -> running <- false
+      | _ -> printfn "%A" (execute (parse (lex input)))
     with
       | _ -> printfn "Invalid expression"
   0
