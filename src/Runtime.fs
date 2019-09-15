@@ -7,7 +7,7 @@ open System.Collections.Generic;
 let variables = new Dictionary<string, double>();
 
 let rec execute expression =
-  let fail() = failwith ("Invalid expression" + expression.ToString())
+  let fail() = failwith "Invalid expression"
   match expression with
   | Binary(left, op, right) ->
     match op with
