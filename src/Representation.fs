@@ -8,6 +8,7 @@ type TokenType =
   | Divide
   | Power
   | Modulo
+  | Equal
   | LeftParen
   | RightParen
   | Identifier
@@ -34,3 +35,5 @@ type Expression =
   | Constant of double
   | Binary of Expression * TokenType * Expression
   | Unary of TokenType * Expression
+  | VarAssign of string * Expression
+  | VarGet of string

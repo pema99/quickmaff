@@ -36,6 +36,7 @@ let lex text =
       | '/' -> lexCont text.[1..] ({ Type = TokenType.Divide; Lexeme = None }::tokens) 
       | '^' -> lexCont text.[1..] ({ Type = TokenType.Power; Lexeme = None }::tokens)
       | '%' -> lexCont text.[1..] ({ Type = TokenType.Modulo; Lexeme = None }::tokens)
+      | '=' -> lexCont text.[1..] ({ Type = TokenType.Equal; Lexeme = None }::tokens)
       | '(' -> lexCont text.[1..] ({ Type = TokenType.LeftParen; Lexeme = None }::tokens)
       | ')' -> lexCont text.[1..] ({ Type = TokenType.RightParen; Lexeme = None }::tokens)
         
