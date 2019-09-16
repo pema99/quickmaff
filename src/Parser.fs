@@ -15,7 +15,7 @@ let parse (tokens:list<Token>) =
     if advance().Type <> token then
       fail()
   
-  //Precedence level template for binary operators
+  //Precedence level template for infix operators
   let parsePrecedence next matches =
     let mutable higher = next()
     while offset < tokens.Length - 1 && List.contains tokens.[offset].Type matches do
@@ -23,21 +23,30 @@ let parse (tokens:list<Token>) =
       higher <- Binary (higher, token.Type, next())
     higher
 
-  //Algebraic precedence level
-  let rec parseFactor() =
+  //Expression precedence levels
+  let rec parsePrimary() =
     match tokens.[offset].Type with
     | TokenType.Number -> Constant (extractNumber (Option.get (advance().Lexeme)))
-    | TokenType.Plus | TokenType.Minus -> Unary (advance().Type, parseFactor())
+    | TokenType.Plus | TokenType.Minus | TokenType.Bang -> Unary (advance().Type, parsePrimary())
     | TokenType.Identifier -> VarGet (extractString (Option.get (advance().Lexeme)))
     | TokenType.LeftParen ->
       advance() |> ignore
-      let higher = parseAddSub();
+      let higher = parseBoolean();
       eat TokenType.RightParen
       higher
     | _ -> fail()
-  and parsePowMod() = parsePrecedence parseFactor [TokenType.Power; TokenType.Modulo]
-  and parseMulDiv() = parsePrecedence parsePowMod [TokenType.Multiply; TokenType.Divide]
-  and parseAddSub() = parsePrecedence parseMulDiv [TokenType.Plus; TokenType.Minus]
+  and parseExponent() =
+    parsePrecedence parsePrimary [TokenType.Power; TokenType.Modulo]
+  and parseFactor() =
+    parsePrecedence parseExponent [TokenType.Multiply; TokenType.Divide]
+  and parseTerm() =
+    parsePrecedence parseFactor [TokenType.Plus; TokenType.Minus]
+  and parseComparison() =
+    parsePrecedence parseTerm [TokenType.Less; TokenType.Greater; TokenType.LessEqual; TokenType.GreaterEqual]
+  and parseEquality() =
+    parsePrecedence parseComparison [TokenType.EqualEqual; TokenType.BangEqual]
+  and parseBoolean() =
+    parsePrecedence parseEquality [TokenType.And; TokenType.Or]
 
   //Statement precedence level
   let parseStatement() =
@@ -46,9 +55,9 @@ let parse (tokens:list<Token>) =
       if offset < tokens.Length - 1 && tokens.[offset+1].Type = TokenType.Equal then
         let token = advance()
         advance() |> ignore
-        VarAssign (extractString (Option.get (token.Lexeme)), parseAddSub())
+        VarAssign (extractString (Option.get (token.Lexeme)), parseTerm())
       else
-        parseAddSub()              
-    | _ -> parseAddSub()
+        parseBoolean()              
+    | _ -> parseBoolean()
   
   parseStatement()

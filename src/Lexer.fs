@@ -36,9 +36,23 @@ let lex text =
       | '/' -> lexCont text.[1..] ({ Type = TokenType.Divide; Lexeme = None }::tokens) 
       | '^' -> lexCont text.[1..] ({ Type = TokenType.Power; Lexeme = None }::tokens)
       | '%' -> lexCont text.[1..] ({ Type = TokenType.Modulo; Lexeme = None }::tokens)
-      | '=' -> lexCont text.[1..] ({ Type = TokenType.Equal; Lexeme = None }::tokens)
+
       | '(' -> lexCont text.[1..] ({ Type = TokenType.LeftParen; Lexeme = None }::tokens)
       | ')' -> lexCont text.[1..] ({ Type = TokenType.RightParen; Lexeme = None }::tokens)
+
+      | '=' | '!' | '<' | '>' | '&' | '|' ->
+        match text.[0], text.[1] with
+        | '&', '&' -> lexCont text.[2..] ({ Type = TokenType.And; Lexeme = None }::tokens)
+        | '|', '|' -> lexCont text.[2..] ({ Type = TokenType.Or; Lexeme = None }::tokens)
+        | '=', '=' -> lexCont text.[2..] ({ Type = TokenType.EqualEqual; Lexeme = None }::tokens)
+        | '!', '=' -> lexCont text.[2..] ({ Type = TokenType.BangEqual; Lexeme = None }::tokens)
+        | '<', '=' -> lexCont text.[2..] ({ Type = TokenType.LessEqual; Lexeme = None }::tokens)
+        | '>', '=' -> lexCont text.[2..] ({ Type = TokenType.GreaterEqual; Lexeme = None }::tokens)
+        | '<', _ -> lexCont text.[1..] ({ Type = TokenType.Less; Lexeme = None }::tokens) 
+        | '>', _ -> lexCont text.[1..] ({ Type = TokenType.Greater; Lexeme = None }::tokens) 
+        | '=', _ -> lexCont text.[1..] ({ Type = TokenType.Equal; Lexeme = None }::tokens) 
+        | '!', _ -> lexCont text.[1..] ({ Type = TokenType.Bang; Lexeme = None }::tokens) 
+        | _, _ -> failwith "Unexpected token"
         
       | c when c >= '0' && c <= '9' ->
         let num, numLength = takeNumber text

@@ -8,6 +8,15 @@ type TokenType =
   | Divide
   | Power
   | Modulo
+  | Bang
+  | EqualEqual
+  | BangEqual
+  | Less
+  | Greater
+  | LessEqual
+  | GreaterEqual
+  | And
+  | Or
   | Equal
   | LeftParen
   | RightParen
