@@ -55,7 +55,7 @@ let parse (tokens:list<Token>) =
       if offset < tokens.Length - 1 && tokens.[offset+1].Type = TokenType.Equal then
         let token = advance()
         advance() |> ignore
-        VarAssign (extractString (Option.get (token.Lexeme)), parseTerm())
+        VarAssign (extractString (Option.get (token.Lexeme)), parseBoolean())
       else
         parseBoolean()              
     | _ -> parseBoolean()
