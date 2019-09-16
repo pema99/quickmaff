@@ -27,3 +27,5 @@ idk lol
 - Functions
 - Built in math library
 - Arrays
+
+###### I swear to god this is gonna spiral out of control and become a fully fledged language
