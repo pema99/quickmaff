@@ -2,4 +2,5 @@ src/Representation.fs
 src/Lexer.fs
 src/Parser.fs
 src/Runtime.fs
+src/Reduce.fs
 src/Main.fs
