@@ -2,9 +2,11 @@ module Reduce
   
 open Representation
 open System.Collections.Generic
-  
+
+//AST transformation
 type Transform = Expression -> Expression
-  
+
+//Apply to entire ast
 let rec apply (ast:Expression) (t:Transform) =
   match ast with
   | Constant(num) ->           t (Constant(num))  
@@ -14,59 +16,77 @@ let rec apply (ast:Expression) (t:Transform) =
   | VarGet(iden) ->            t (VarGet(iden))
   | Invalid ->                 failwith "This should never happen"
 
+//Table operations
 let checkOrAdd (key:'A) (value:'B) (table:Dictionary<'A, 'B>) =
   if not (table.ContainsValue(value)) then
     table.[key] <- value
   table.ContainsKey(key) && table.[key] = value
-  
-//Attempt to insert expressions into given pattern
-//in order to form a matched pattern tree
+
+let revTable (table:Dictionary<'A, 'B>) =
+  let result = new Dictionary<'B, 'A>()
+  for i in table do
+    result.[i.Value] <- i.Key
+  result
+
+//Match the expression with a given pattern
 let matchPattern expr pattern =
   let symTable = new Dictionary<string, int>()
   let numTable = new Dictionary<double, int>()
-
+  let exprTable = new Dictionary<Expression, int>()
   let rec matchPatternCont (expr:Expression) (pattern:PatternNode) =
     match expr, pattern with
-    | Constant(num), PAnyConstant(_, id) ->
-      if checkOrAdd num id numTable then
-        Some(PAnyConstant(expr, id))
-      else
-        None
-    | Constant(num), PConstant(_, id, target) ->
-      if num = target && checkOrAdd num id numTable then
-        Some(PConstant(expr, id, target))
-      else
-        None
-    | VarGet(iden), PNonConstant(_, id) ->
-      if checkOrAdd iden id symTable then
-        Some(PNonConstant(expr, id))
-      else
-        None
-    | Binary(left, op, right), PBinary(_, leftPattern, opTarget, rightPattern) ->
+    | Constant(num), PAnyConstant(id) -> checkOrAdd num id numTable
+    | Constant(num), PConstant(target) -> num = target
+    | VarGet(iden), PNonConstant(id) -> checkOrAdd iden id symTable
+    | Binary(left, op, right), PBinary(leftPattern, opTarget, rightPattern) ->
       if op = opTarget then
         let leftMatched = matchPatternCont left leftPattern
         let rightMatched = matchPatternCont right rightPattern
-        match leftMatched, rightMatched with
-        | Some(l), Some(r) -> Some(PBinary(expr, l, op, r))
-        | _ -> None
+        leftMatched && rightMatched
       else
-        None
-    | Unary(op, right), PUnary(_, opTarget, rightPattern) -> 
+        false
+    | Unary(op, right), PUnary(opTarget, rightPattern) -> 
       if op = opTarget then
-        let rightMatched = matchPatternCont right rightPattern
-        match rightMatched with
-        | Some(r) -> Some(PUnary(expr, op, r))
-        | _ -> None
+        matchPatternCont right rightPattern
       else
-        None
-    | _, PWildCard(_) ->
-      Some(PWildCard(expr))
-    | _ ->
-      None
-  matchPatternCont expr pattern
+        false
+    | _, PWildCard(id) -> checkOrAdd expr id exprTable 
+    | _ -> false
+  (matchPatternCont expr pattern), symTable, numTable, exprTable
 
-//L1 _ L2 = L3
-let ruleCollapseConstants:Transform = fun expr ->
+//Replace a matched expression with a given replacement
+let replacePattern replacement (symTable:Dictionary<string, int>) (numTable:Dictionary<double, int>) (exprTable:Dictionary<Expression, int>) =    
+  let symTable = revTable symTable
+  let numTable = revTable numTable
+  let exprTable = revTable exprTable  
+  let rec replacePatternCont (replacement:PatternNode) =
+    match replacement with
+    | PAnyConstant(id) -> Constant(numTable.[id])
+    | PConstant(num) -> Constant(num)
+    | PNonConstant(id) -> VarGet(symTable.[id])
+    | PBinary(left, op, right) -> Binary(replacePatternCont left, op, replacePatternCont right)
+    | PUnary(op, right) -> Unary(op, replacePatternCont right)
+    | PWildCard(id) -> exprTable.[id]
+  replacePatternCont replacement
+
+let matchAndReplacePattern expr pattern replacement =
+  let matched, symTable, numTable, exprTable = matchPattern expr pattern
+  if matched then
+    replacePattern replacement symTable numTable exprTable
+  else
+    expr
+
+let patterns = [
+  (PBinary(PAnyConstant(1), TokenType.Multiply, PBinary(PAnyConstant(2), TokenType.Multiply, PNonConstant(1))), PBinary(PBinary(PAnyConstant(1), TokenType.Multiply, PAnyConstant(2)), TokenType.Multiply, PNonConstant(1)))
+]
+
+let applyPatterns:Transform = fun expr ->
+  let mutable result = expr
+  for (pattern, replacement) in patterns do
+    result <- matchAndReplacePattern result pattern replacement
+  result
+
+let collapseConstants:Transform = fun expr ->
   match expr with
   | Binary(left, op, right) ->
     match left, right with
@@ -90,67 +110,5 @@ let ruleCollapseConstants:Transform = fun expr ->
     | _ -> expr
   | _ -> expr
 
-let applyOp a op b =
-  match op with
-  | TokenType.Plus     -> a + b 
-  | TokenType.Multiply -> a * b 
-  | TokenType.Divide   -> a / b 
-  | TokenType.Minus    -> a - b 
-  | _ -> failwith "Fail"
-
-let invOp op = 
-  match op with
-  | TokenType.Plus     -> TokenType.Minus 
-  | TokenType.Multiply -> TokenType.Divide
-  | TokenType.Divide   -> TokenType.Multiply
-  | TokenType.Minus    -> TokenType.Plus
-  | _ -> failwith "Fail"
-
-let applyInvOp a op b =
-  applyOp a (invOp op) b
-  
-//L1 * (L2 * N1) = (L1 * L2) * N1
-//(L1 * N1) * L2 = (L1 * L2) * N1
-//L1 + (L2 + N1) = (L1 + L2) + N1
-//(L1 + N1) + L2 = (L1 + L2) + N1
-let ruleMulConstantsLeft:Transform = fun expr ->
-  match expr with
-  | Binary(left, op, right) when op = TokenType.Multiply || op = TokenType.Plus ->
-    let cont exprs = 
-      match exprs with
-      | Constant(numL1), Binary(exprRL, opR, exprRR) when op = opR ->
-        match exprRL, exprRR with
-        | Constant(numL2), VarGet(_) -> Binary(Constant(applyOp numL1 op numL2), op, exprRR) 
-        | VarGet(_), Constant(numL2) -> Binary(Constant(applyOp numL1 op numL2), op, exprRL)
-        | _ -> expr
-      | _ -> expr
-    let normal = cont (left, right)
-    if normal = expr then cont (right, left)
-    else normal
-  | _ -> expr
-
-
-//L1 / (L2 / N1) = (L1 / L2) * N1    O      addendum: L1 / (L2 * N1) = (L1 / L2) / N1     
-//(L1 / N1) / L2 = (L1 / L2) / N1    
-//L1 / (N1 / L2) = (L1 * L2) / N1    O
-//(N1 / L1) / L2 = N1 / (L1 * L2)    
-
-
-//L1 - (L2 - N1) = (L1 - L2) + N1    O
-//(L1 - N1) - L2 = (L1 - L2) - N1    
-//L1 - (N1 - L2) = (L1 + L2) - N1    O
-//(N1 - L1) - L2 = N1 - (L1 + L2)    
-let ruleDivConstantsLeft:Transform = fun expr ->
-  match expr with
-  | Binary(left, op, right) when op = TokenType.Divide || op = TokenType.Minus ->
-    match left, right with
-    | Constant(numL1), Binary(exprRL, opR, exprRR) when op = opR ->
-      match exprRL, exprRR with
-      | Constant(numL2), VarGet(_) -> Binary(Constant(applyOp numL1 op numL2), invOp op, exprRR) 
-      | VarGet(_), Constant(numL2) -> Binary(Constant(applyInvOp numL1 op numL2), op, exprRL)
-      | _ -> expr
-    | _ -> expr
-  | _ -> expr
-
 let reduce (ast:Expression) =
-  apply (apply (apply ast ruleMulConstantsLeft) ruleCollapseConstants) ruleDivConstantsLeft
+  apply (apply ast applyPatterns) collapseConstants

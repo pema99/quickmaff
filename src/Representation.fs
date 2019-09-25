@@ -49,9 +49,9 @@ type Expression =
   | Invalid
 
 type PatternNode =
-  | PAnyConstant  of Expression * int  
-  | PConstant     of Expression * int * double
-  | PNonConstant  of Expression * int
-  | PBinary      of Expression * PatternNode * TokenType * PatternNode
-  | PUnary       of Expression * TokenType * PatternNode
-  | PWildCard    of Expression
+  | PAnyConstant of int  
+  | PConstant    of double
+  | PNonConstant of int
+  | PBinary      of PatternNode * TokenType * PatternNode
+  | PUnary       of TokenType * PatternNode
+  | PWildCard    of int
