@@ -46,3 +46,12 @@ type Expression =
   | Unary of TokenType * Expression
   | VarAssign of string * Expression
   | VarGet of string
+  | Invalid
+
+type PatternNode =
+  | PAnyConstant  of Expression * int  
+  | PConstant     of Expression * int * double
+  | PNonConstant  of Expression * int
+  | PBinary      of Expression * PatternNode * TokenType * PatternNode
+  | PUnary       of Expression * TokenType * PatternNode
+  | PWildCard    of Expression

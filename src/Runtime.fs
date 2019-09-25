@@ -41,3 +41,4 @@ let rec execute expression =
       variables.[iden]
     else
       0.0
+  | _ -> fail()

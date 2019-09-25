@@ -1,9 +1,10 @@
 module Reduce
-
+  
 open Representation
-
+open System.Collections.Generic
+  
 type Transform = Expression -> Expression
-
+  
 let rec apply (ast:Expression) (t:Transform) =
   match ast with
   | Constant(num) ->           t (Constant(num))  
@@ -11,9 +12,61 @@ let rec apply (ast:Expression) (t:Transform) =
   | Unary(op, right) ->        t (Unary(op, apply right t))
   | VarAssign(iden, expr) ->   t (VarAssign(iden, apply expr t))
   | VarGet(iden) ->            t (VarGet(iden))
+  | Invalid ->                 failwith "This should never happen"
+
+let checkOrAdd (key:'A) (value:'B) (table:Dictionary<'A, 'B>) =
+  if not (table.ContainsValue(value)) then
+    table.[key] <- value
+  table.ContainsKey(key) && table.[key] = value
+  
+//Attempt to insert expressions into given pattern
+//in order to form a matched pattern tree
+let matchPattern expr pattern =
+  let symTable = new Dictionary<string, int>()
+  let numTable = new Dictionary<double, int>()
+
+  let rec matchPatternCont (expr:Expression) (pattern:PatternNode) =
+    match expr, pattern with
+    | Constant(num), PAnyConstant(_, id) ->
+      if checkOrAdd num id numTable then
+        Some(PAnyConstant(expr, id))
+      else
+        None
+    | Constant(num), PConstant(_, id, target) ->
+      if num = target && checkOrAdd num id numTable then
+        Some(PConstant(expr, id, target))
+      else
+        None
+    | VarGet(iden), PNonConstant(_, id) ->
+      if checkOrAdd iden id symTable then
+        Some(PNonConstant(expr, id))
+      else
+        None
+    | Binary(left, op, right), PBinary(_, leftPattern, opTarget, rightPattern) ->
+      if op = opTarget then
+        let leftMatched = matchPatternCont left leftPattern
+        let rightMatched = matchPatternCont right rightPattern
+        match leftMatched, rightMatched with
+        | Some(l), Some(r) -> Some(PBinary(expr, l, op, r))
+        | _ -> None
+      else
+        None
+    | Unary(op, right), PUnary(_, opTarget, rightPattern) -> 
+      if op = opTarget then
+        let rightMatched = matchPatternCont right rightPattern
+        match rightMatched with
+        | Some(r) -> Some(PUnary(expr, op, r))
+        | _ -> None
+      else
+        None
+    | _, PWildCard(_) ->
+      Some(PWildCard(expr))
+    | _ ->
+      None
+  matchPatternCont expr pattern
 
 //L1 _ L2 = L3
-let ruleCollapseLiterals:Transform = fun expr ->
+let ruleCollapseConstants:Transform = fun expr ->
   match expr with
   | Binary(left, op, right) ->
     match left, right with
@@ -60,7 +113,7 @@ let applyInvOp a op b =
 //(L1 * N1) * L2 = (L1 * L2) * N1
 //L1 + (L2 + N1) = (L1 + L2) + N1
 //(L1 + N1) + L2 = (L1 + L2) + N1
-let ruleMulLiteralsLeft:Transform = fun expr ->
+let ruleMulConstantsLeft:Transform = fun expr ->
   match expr with
   | Binary(left, op, right) when op = TokenType.Multiply || op = TokenType.Plus ->
     let cont exprs = 
@@ -87,7 +140,7 @@ let ruleMulLiteralsLeft:Transform = fun expr ->
 //(L1 - N1) - L2 = (L1 - L2) - N1    
 //L1 - (N1 - L2) = (L1 + L2) - N1    O
 //(N1 - L1) - L2 = N1 - (L1 + L2)    
-let ruleDivLiteralsLeft:Transform = fun expr ->
+let ruleDivConstantsLeft:Transform = fun expr ->
   match expr with
   | Binary(left, op, right) when op = TokenType.Divide || op = TokenType.Minus ->
     match left, right with
@@ -100,4 +153,4 @@ let ruleDivLiteralsLeft:Transform = fun expr ->
   | _ -> expr
 
 let reduce (ast:Expression) =
-  apply (apply (apply ast ruleMulLiteralsLeft) ruleCollapseLiterals) ruleDivLiteralsLeft
+  apply (apply (apply ast ruleMulConstantsLeft) ruleCollapseConstants) ruleDivConstantsLeft
