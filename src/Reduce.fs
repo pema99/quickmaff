@@ -6,6 +6,11 @@ open System.Collections.Generic
 //AST transformation
 type Transform = Expression -> Expression
 
+//Default rules
+let patterns = [
+  (PBinary(PAnyConstant(1), TokenType.Multiply, PBinary(PAnyConstant(2), TokenType.Multiply, PNonConstant(1))), PBinary(PBinary(PAnyConstant(1), TokenType.Multiply, PAnyConstant(2)), TokenType.Multiply, PNonConstant(1)))
+]
+
 //Apply to entire ast
 let rec apply (ast:Expression) (t:Transform) =
   match ast with
@@ -69,6 +74,7 @@ let replacePattern replacement (symTable:Dictionary<string, int>) (numTable:Dict
     | PWildCard(id) -> exprTable.[id]
   replacePatternCont replacement
 
+//Match and replace a pattern with a different one if possible
 let matchAndReplacePattern expr pattern replacement =
   let matched, symTable, numTable, exprTable = matchPattern expr pattern
   if matched then
@@ -76,16 +82,19 @@ let matchAndReplacePattern expr pattern replacement =
   else
     expr
 
-let patterns = [
-  (PBinary(PAnyConstant(1), TokenType.Multiply, PBinary(PAnyConstant(2), TokenType.Multiply, PNonConstant(1))), PBinary(PBinary(PAnyConstant(1), TokenType.Multiply, PAnyConstant(2)), TokenType.Multiply, PNonConstant(1)))
-]
+//Single pattern applicator
+let makePatternApplicator pattern replacement =
+  fun expr ->
+    matchAndReplacePattern expr pattern replacement
 
+//Applicator for all patterns
 let applyPatterns:Transform = fun expr ->
   let mutable result = expr
   for (pattern, replacement) in patterns do
     result <- matchAndReplacePattern result pattern replacement
   result
 
+//Special pattern, collapse all constants
 let collapseConstants:Transform = fun expr ->
   match expr with
   | Binary(left, op, right) ->
@@ -110,5 +119,28 @@ let collapseConstants:Transform = fun expr ->
     | _ -> expr
   | _ -> expr
 
+//Apply all possible patterns and return the set of nonreducable expressions
 let reduce (ast:Expression) =
-  apply (apply ast applyPatterns) collapseConstants
+  let seen = new HashSet<Expression>()
+  seen.Add(ast) |> ignore
+  let addUnique elem =
+    if seen.Contains(elem) then false
+    else
+      seen.Add(elem) |> ignore
+      true
+  let rec reduceCont (coll:list<Expression>) (leaf:list<Expression>) =
+    if coll.Length > 0 then
+      let curr = coll.[0]
+      let perms = [
+        for (pattern, replacement) in patterns do
+          let transform = makePatternApplicator pattern replacement
+          let next = apply curr transform
+          if addUnique next then yield next 
+        let collapsed = apply curr collapseConstants
+        if addUnique collapsed then yield collapsed
+      ]
+      let coll = List.append coll.[1..] perms
+      let leaf = if perms.Length = 0 then (curr::leaf) else leaf
+      reduceCont coll leaf
+    else leaf
+  reduceCont [ast] []
