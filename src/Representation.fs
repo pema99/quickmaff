@@ -48,10 +48,10 @@ type Expression =
   | VarGet of string
   | Invalid
 
-type PatternNode =
+type Pattern =
   | PAnyConstant of int  
   | PConstant    of double
   | PNonConstant of int
-  | PBinary      of PatternNode * TokenType * PatternNode
-  | PUnary       of TokenType * PatternNode
+  | PBinary      of Pattern * TokenType * Pattern
+  | PUnary       of TokenType * Pattern
   | PWildCard    of int

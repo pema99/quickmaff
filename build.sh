@@ -1,2 +1,2 @@
 #!/bin/sh
-cat build_list.txt | xargs -d '\n' fsharpc --out:bin/qm.exe
+cat build_list.txt | xargs -d '\n' fsharpc --nologo --out:bin/qm.exe

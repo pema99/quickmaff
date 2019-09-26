@@ -13,13 +13,13 @@ let main args =
 
   while running do
     printf "> "
-    try
-      let input = Console.ReadLine()
-      match input with
-      | "exit" | "quit" -> running <- false
-      | text when text.StartsWith("simplify") ->
-        printfn "%A" (reduce (parse (lex text.[8..])))
-      | _ -> printfn "%A" (execute (parse (lex input)))
-    with
-      | _ -> printfn "Invalid expression"
+    //try
+    let input = Console.ReadLine()
+    match input with
+    | "exit" | "quit" -> running <- false
+    | text when text.StartsWith("simplify") ->
+      printfn "%A" (reduce (parse (lex text.[8..])))
+    | _ -> printfn "%A" (execute (parse (lex input)))
+    //with
+    //  | _ -> printfn "Invalid expression"
   0
