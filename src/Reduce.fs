@@ -3,9 +3,6 @@ module Reduce
 open Representation
 open System.Collections.Generic
 
-//AST transformation
-type Transform = Expression -> Expression
-
 //Default rules
 let patterns = [
   (PBinary(PAnyConstant(1), TokenType.Multiply, PBinary(PAnyConstant(2), TokenType.Multiply, PNonConstant(1))), PBinary(PBinary(PAnyConstant(1), TokenType.Multiply, PAnyConstant(2)), TokenType.Multiply, PNonConstant(1)))

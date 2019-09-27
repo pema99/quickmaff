@@ -60,4 +60,8 @@ let parse (tokens:list<Token>) =
         parseBoolean()              
     | _ -> parseBoolean()
   
-  parseStatement()
+  let res = parseStatement()
+  //Only 1 expression allowed
+  if offset <> tokens.Length then fail() 
+  res
+  

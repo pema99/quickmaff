@@ -1,6 +1,6 @@
 module Representation
 
-//Representation
+//Token types
 type TokenType =
   | Plus
   | Minus
@@ -23,6 +23,7 @@ type TokenType =
   | Identifier
   | Number
 
+//Literals
 type Literal =
   | Number of double
   | String of string
@@ -35,11 +36,13 @@ let extractString = function
   | String(s) -> s
   | _ -> failwith "Attempted to extract wrong union case"
 
+//Single token
 type Token = {
   Type: TokenType
   Lexeme: Literal option 
 }
 
+//AST
 type Expression =
   | Constant of double
   | Binary of Expression * TokenType * Expression
@@ -48,6 +51,7 @@ type Expression =
   | VarGet of string
   | Invalid
 
+//Pattern tree
 type Pattern =
   | PAnyConstant of int  
   | PConstant    of double
@@ -55,3 +59,6 @@ type Pattern =
   | PBinary      of Pattern * TokenType * Pattern
   | PUnary       of TokenType * Pattern
   | PWildCard    of int
+
+//AST transformation
+type Transform = Expression -> Expression

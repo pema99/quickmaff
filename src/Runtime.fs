@@ -42,3 +42,35 @@ let rec execute expression =
     else
       0.0
   | _ -> fail()
+
+  
+let rec print expression =
+  let fail() = failwith "Invalid expression"
+  match expression with
+  | Binary(left, op, right) ->
+    match op with
+    | TokenType.Plus ->         sprintf "%s+%s" (print left) (print right)
+    | TokenType.Minus ->        sprintf "%s-%s" (print left) (print right)
+    | TokenType.Multiply ->     sprintf "%s*%s" (print left) (print right)
+    | TokenType.Divide ->       sprintf "%s/%s" (print left) (print right)
+    | TokenType.Modulo ->       sprintf "%s%%%s" (print left) (print right)
+    | TokenType.Power ->        sprintf "%s^%s" (print left) (print right)
+    | TokenType.EqualEqual ->   sprintf "%s==%s" (print left) (print right)  
+    | TokenType.BangEqual ->    sprintf "%s!=%s" (print left) (print right) 
+    | TokenType.Less ->         sprintf "%s<%s" (print left) (print right)  
+    | TokenType.Greater ->      sprintf "%s>%s" (print left) (print right)  
+    | TokenType.LessEqual ->    sprintf "%s<=%s" (print left) (print right) 
+    | TokenType.GreaterEqual -> sprintf "%s>= %s" (print left) (print right) 
+    | TokenType.And ->          sprintf "%s&&%s" (print left) (print right) 
+    | TokenType.Or ->           sprintf "%s||%s" (print left) (print right) 
+    | _ -> fail()
+  | Unary(op, operand) ->
+    match op with
+    | TokenType.Plus ->  sprintf "%s" (print operand)
+    | TokenType.Minus -> sprintf "-%s" (print operand)
+    | TokenType.Bang ->  sprintf "!%s" (print operand)
+    | _ -> fail()
+  | Constant(num) ->            sprintf "%s" (string (num))
+  | VarAssign(iden, operand) -> sprintf "%s=%s" iden (print operand) 
+  | VarGet(iden) ->             sprintf "%s" iden
+  | _ -> fail()
