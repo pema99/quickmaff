@@ -64,4 +64,21 @@ let parse (tokens:list<Token>) =
   //Only 1 expression allowed
   if offset <> tokens.Length then fail() 
   res
-  
+
+let parsePattern (tokens:list<Token>) =
+  let fail() = failwith "Unexpected token in pattern string"
+  let rec parsePatternCont expr =
+    match expr with
+    | Constant(num) -> PConstant(num)
+    | Binary(left, op, right) -> PBinary(parsePatternCont left, op, parsePatternCont right)
+    | Unary(op, right) -> PUnary(op, parsePatternCont right)
+    | VarGet(iden) ->
+      if iden.Length < 2 then fail()
+      let id = int (iden.[1..])
+      match iden.[0] with
+      | 'L' -> PAnyConstant(id)
+      | 'N' -> PNonConstant(id)
+      | 'W' -> PWildCard(id)
+      | _ -> fail()
+    | _ -> fail()
+  parsePatternCont (parse tokens)

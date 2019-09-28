@@ -41,8 +41,6 @@ let rec execute expression =
       variables.[iden]
     else
       0.0
-  | _ -> fail()
-
   
 let rec print expression =
   let fail() = failwith "Invalid expression"
@@ -73,4 +71,3 @@ let rec print expression =
   | Constant(num) ->            sprintf "%s" (string (num))
   | VarAssign(iden, operand) -> sprintf "%s=%s" iden (print operand) 
   | VarGet(iden) ->             sprintf "%s" iden
-  | _ -> fail()

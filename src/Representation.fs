@@ -49,7 +49,14 @@ type Expression =
   | Unary of TokenType * Expression
   | VarAssign of string * Expression
   | VarGet of string
-  | Invalid
+
+let rec treeDepth expr =
+  match expr with
+  | Constant(_) -> 1
+  | Binary(left, _, right) -> 1 + (treeDepth left) + (treeDepth right)
+  | Unary(_, right) -> 1 + (treeDepth right)
+  | VarAssign(_, operand) -> 1 + (treeDepth operand)
+  | VarGet(_) -> 1
 
 //Pattern tree
 type Pattern =

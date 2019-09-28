@@ -19,6 +19,7 @@ let main args =
       | text when text.StartsWith("simplify") ->
         for i in reduce (parse (lex text.[8..])) do
           printfn "%s" (print i)
+          //printfn "%A" i
       | _ ->
         printfn "%A" (execute (parse (lex input)))
     with

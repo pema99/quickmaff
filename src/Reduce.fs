@@ -4,8 +4,21 @@ open Representation
 open System.Collections.Generic
 
 //Default rules
-let patterns = [
-  (PBinary(PAnyConstant(1), TokenType.Multiply, PBinary(PAnyConstant(2), TokenType.Multiply, PNonConstant(1))), PBinary(PBinary(PAnyConstant(1), TokenType.Multiply, PAnyConstant(2)), TokenType.Multiply, PNonConstant(1)))
+let newRule pattern replacement =
+  (Parser.parsePattern (Lexer.lex pattern), Parser.parsePattern (Lexer.lex replacement))
+
+let rules = [
+  newRule "L1*(L2*N1)" "(L1*L2)*N1";
+  newRule "(L1*N1)*L2" "(L1*L2)*N1";
+  
+  newRule "N1*L1" "L1*N1";
+  newRule "N1+L1" "L1+N1";
+
+  newRule "0+W1" "W1"; 
+  newRule "W1-0" "W1";
+  newRule "0*W1" "0";
+  newRule "1*W1" "W1";
+  newRule "W1/1" "W1";
 ]
 
 //Apply to entire ast
@@ -16,7 +29,6 @@ let rec applyTransform (ast:Expression) (t:Transform) =
   | Unary(op, right) ->        t (Unary(op, applyTransform right t))
   | VarAssign(iden, expr) ->   t (VarAssign(iden, applyTransform expr t))
   | VarGet(iden) ->            t (VarGet(iden))
-  | Invalid ->                 failwith "This should never happen"
 
 //Match the expression with a given pattern
 let matchPattern expr pattern =
@@ -71,23 +83,11 @@ let collapseConstants:Transform = fun expr ->
   match expr with
   | Binary(left, op, right) ->
     match left, right with
-    | Constant(numL), Constant(numR) ->
-      match op with
-      | TokenType.Plus ->     Constant(numL + numR)
-      | TokenType.Minus ->    Constant(numL - numR)
-      | TokenType.Multiply -> Constant(numL * numR)
-      | TokenType.Divide ->   Constant(numL / numR)
-      | TokenType.Modulo ->   Constant(numL % numR)
-      | TokenType.Power ->    Constant(numL ** numR)
-      | _ -> failwith "Unexpected token" //TODO: Support boolean ops
+    | Constant(numL), Constant(numR) -> Constant(Runtime.execute expr)
     | _ -> expr
   | Unary(op, right) ->
     match right with
-    | Constant(num) ->
-      match op with
-      | TokenType.Plus ->  Constant(num)
-      | TokenType.Minus -> Constant(-num)
-      | _ -> failwith "Unexpected token" //TODO: Support boolean ops
+    | Constant(num) -> Constant(Runtime.execute expr)
     | _ -> expr
   | _ -> expr
 
@@ -99,7 +99,7 @@ let reduce (ast:Expression) =
   let rec reduceCont (coll:list<Expression>) (seen:Set<Expression>) (leaf:list<Expression>) =
     if coll.Length > 0 then
       let curr = coll.[0]
-      let (perms, seen) = (([], seen), patterns) ||> List.fold (fun acc rule ->
+      let (perms, seen) = (([], seen), rules) ||> List.fold (fun acc rule ->
         let (perms, seen) = acc
         let (pattern, replacement) = rule
         let transform = fun expr -> applyPattern expr pattern replacement
@@ -112,5 +112,8 @@ let reduce (ast:Expression) =
       let leaf = if perms.Length = 0 then (curr::leaf) else leaf
       reduceCont coll seen leaf
     else leaf
-  reduceCont [ast] (set[ast]) []
-  
+  let res = reduceCont [ast] (set[ast]) []
+  let depths = res |> List.map treeDepth
+  let minDepth = depths |> List.min
+  let filtered = (List.zip res depths) |> List.filter (fun (x, y) -> y <= minDepth)
+  fst (List.unzip filtered)
