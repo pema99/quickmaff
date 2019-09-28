@@ -22,6 +22,7 @@ idk lol
 - Evaluate arbitrary expressions and print result
 - Support for boolean operations
 - Variables
+- Term rewriting system (Currently only does basic reduction)
 
 # To do
 - Functions
