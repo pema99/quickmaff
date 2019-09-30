@@ -8,17 +8,49 @@ let newRule pattern replacement =
   (Parser.parsePattern (Lexer.lex pattern), Parser.parsePattern (Lexer.lex replacement))
 
 let rules = [
-  newRule "L1*(L2*N1)" "(L1*L2)*N1";
-  newRule "(L1*N1)*L2" "(L1*L2)*N1";
+  newRule "L1*(L2*N1)" "(L1*L2)*N1"
+  newRule "L1+(L2+N1)" "(L1+L2)+N1"
+  newRule "N1+(L1+N2)" "L1+(N1+N2)"
   
-  newRule "N1*L1" "L1*N1";
-  newRule "N1+L1" "L1+N1";
+  newRule "N1*L1" "L1*N1"
+  newRule "N1+L1" "L1+N1"
 
-  newRule "0+W1" "W1"; 
-  newRule "W1-0" "W1";
-  newRule "0*W1" "0";
-  newRule "1*W1" "W1";
-  newRule "W1/1" "W1";
+  newRule "0+W1" "W1" 
+  newRule "0*W1" "0"
+  newRule "W1-0" "W1"
+  newRule "0-W1" "-W1"
+  newRule "0/W1" "0"
+  newRule "1*W1" "W1"
+  newRule "W1/1" "W1"
+
+  newRule "W1*W1" "W1^2"
+  newRule "W1-W1" "0"
+  newRule "W1+W1" "2*W1"
+  newRule "W1/W1" "1" //EDGE CASE: 0/0
+
+  newRule "(L1^W1)*(L2^W1)" "(L1*L2)^W1"
+  newRule "(W1^L1)*(W1^L2)" "W1^(L1+L2)"
+  newRule "W1*(W1^L1)" "W1^(L1+1)"
+  newRule "(W1^L1)^L2" "W1^(L1*L2)"
+  newRule "W1^0" "1"
+  newRule "1^W1" "1"
+  newRule "W1^1" "W1"
+  newRule "W1^-1" "1/W1"
+  newRule "W1*(W1*W2)" "W2*(W1^2)"
+  newRule "W1+(W1+W2)" "W1*2+W2"
+  newRule "W1+(W1*W2)" "W1*(W2+1)"
+  newRule "W1*(W1^L1*W2)" "W2*W1^(L1+1)"
+  
+  newRule "(L1*N1)+N1" "(L1+1)*N1"
+  newRule "N1+(L1*N1)" "(L1+1)*N1"
+
+  newRule "(W1*W2)+(W3*W2)" "(W1+W3)*W2"
+  newRule "(W1*W2)*(W3*W2)" "(W1*W3)*(W2^2)"
+  newRule "(W1+W2)+(W3+W2)" "(W1+W3)+(W2*2)"
+  newRule "(L1*W1)/L1" "W1"
+
+  newRule "W1*W2" "W2*W1"
+  newRule "W1+W2" "W2+W1"
 ]
 
 //Apply to entire ast
@@ -30,10 +62,19 @@ let rec applyTransform (ast:Expression) (t:Transform) =
   | VarAssign(iden, expr) ->   t (VarAssign(iden, applyTransform expr t))
   | VarGet(iden) ->            t (VarGet(iden))
 
+//Check if an expression is fully constant or nonconstant
+let rec checkConstant expr =
+  match expr with
+  | Constant(num) -> true
+  | VarGet(iden) -> false
+  | Binary(left, op, right) -> checkConstant left && checkConstant right
+  | Unary(op, right) -> checkConstant right
+  | _ -> false
+  
 //Match the expression with a given pattern
 let matchPattern expr pattern =
-  let symTable = new Dictionary<int, string>()
-  let numTable = new Dictionary<int, double>()
+  let symTable = new Dictionary<int, Expression>()
+  let numTable = new Dictionary<int, Expression>()
   let exprTable = new Dictionary<int, Expression>()
   let checkOrAdd (key:'A) (value:'B) (table:Dictionary<'A, 'B>) =
     if not (table.ContainsKey(key)) then
@@ -41,9 +82,18 @@ let matchPattern expr pattern =
     table.[key] = value
   let rec matchPatternCont (expr:Expression) (pattern:Pattern) =
     match expr, pattern with
-    | Constant(num), PAnyConstant(id) -> checkOrAdd id num numTable
-    | Constant(num), PConstant(target) -> num = target
-    | VarGet(iden), PNonConstant(id) -> checkOrAdd id iden symTable
+    | _, PAnyConstant(id) ->
+      if checkConstant expr then
+        checkOrAdd id expr numTable
+      else
+        false
+    | Constant(num), PConstant(target) ->
+      num = target
+    | _, PNonConstant(id) ->
+      if checkConstant expr then
+        false
+      else
+        checkOrAdd id expr symTable
     | Binary(left, op, right), PBinary(leftPattern, opTarget, rightPattern) ->
       if op = opTarget then
         let leftMatched = matchPatternCont left leftPattern
@@ -61,12 +111,12 @@ let matchPattern expr pattern =
   (matchPatternCont expr pattern), symTable, numTable, exprTable
 
 //Replace a matched expression with a given replacement
-let replacePattern replacement (symTable:Dictionary<int, string>) (numTable:Dictionary<int, double>) (exprTable:Dictionary<int, Expression>) =    
+let replacePattern replacement (symTable:Dictionary<int, Expression>) (numTable:Dictionary<int, Expression>) (exprTable:Dictionary<int, Expression>) =    
   let rec replacePatternCont (replacement:Pattern) =
     match replacement with
-    | PAnyConstant(id) ->         Constant(numTable.[id])
+    | PAnyConstant(id) ->         numTable.[id]
     | PConstant(num) ->           Constant(num)
-    | PNonConstant(id) ->         VarGet(symTable.[id])
+    | PNonConstant(id) ->         symTable.[id]
     | PBinary(left, op, right) -> Binary(replacePatternCont left, op, replacePatternCont right)
     | PUnary(op, right) ->        Unary(op, replacePatternCont right)
     | PWildCard(id) ->            exprTable.[id]
@@ -116,4 +166,6 @@ let reduce (ast:Expression) =
   let depths = res |> List.map treeDepth
   let minDepth = depths |> List.min
   let filtered = (List.zip res depths) |> List.filter (fun (x, y) -> y <= minDepth)
-  fst (List.unzip filtered)
+  let res = fst (List.unzip filtered)
+  printfn "%A" res
+  res
