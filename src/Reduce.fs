@@ -8,49 +8,81 @@ let newRule pattern replacement =
   (Parser.parsePattern (Lexer.lex pattern), Parser.parsePattern (Lexer.lex replacement))
 
 let rules = [
-  newRule "L1*(L2*N1)" "(L1*L2)*N1"
-  newRule "L1+(L2+N1)" "(L1+L2)+N1"
-  newRule "N1+(L1+N2)" "L1+(N1+N2)"
-  
-  newRule "N1*L1" "L1*N1"
-  newRule "N1+L1" "L1+N1"
+  //Move literals right
+  newRule "L1*N1" "N1*L1"
+  newRule "L1+N1" "N1+L1"
 
-  newRule "0+W1" "W1" 
-  newRule "0*W1" "0"
-  newRule "W1-0" "W1"
-  newRule "0-W1" "-W1"
-  newRule "0/W1" "0"
-  newRule "1*W1" "W1"
-  newRule "W1/1" "W1"
+  //Factor out literals, commutative
+  newRule "(N1*L1)*L2" "N1*(L1*L2)"
+  newRule "L2*(N1*L1)" "N1*(L1*L2)"
+  newRule "(N1*L1)*N2" "(N1*N2)*L1"
+  newRule "N2*(N1*L1)" "(N1*N2)*L1"
+  newRule "(N1+L1)+L2" "N1+(L1+L2)"
+  newRule "L2+(N1+L1)" "N1+(L1+L2)"
+  newRule "(N1+L1)+N2" "(N1+N2)+L1"   
+  newRule "N2+(N1+L1)" "(N1+N2)+L1"
 
-  newRule "W1*W1" "W1^2"
-  newRule "W1-W1" "0"
-  newRule "W1+W1" "2*W1"
-  newRule "W1/W1" "1" //EDGE CASE: 0/0
+  //Factor out literals, dependent
+  newRule "(N1-L1)-L2" "N1-(L1-L2)"
+  newRule "L2-(N1-L1)" "(L2-N1)+L1"
 
-  newRule "(L1^W1)*(L2^W1)" "(L1*L2)^W1"
-  newRule "(W1^L1)*(W1^L2)" "W1^(L1+L2)"
-  newRule "W1*(W1^L1)" "W1^(L1+1)"
-  newRule "(W1^L1)^L2" "W1^(L1*L2)"
-  newRule "W1^0" "1"
-  newRule "1^W1" "1"
-  newRule "W1^1" "W1"
-  newRule "W1^-1" "1/W1"
+  //Mirrored operands
+  newRule "N1*N1" "N1^2"
+  newRule "N1-N1" "0"
+  newRule "N1+N1" "2*N1"
+  newRule "N1/N1" "1"
+  newRule "-N1-N1" "-2*N1"
+
+  //Algebraic operations with 0 and 1
+  newRule "N1+0" "N1"
+  newRule "N1*0" "0"
+  newRule "N1-0" "N1"
+  newRule "0-N1" "-N1"
+  newRule "0/N1" "0"
+  newRule "N1*1" "N1"
+  newRule "N1/1" "N1"
+
+  //Single operand power rules
+  newRule "N1^0" "1"
+  newRule "1/N1" "N1^-1"
+  newRule "N1^-1" "1/N1"
+  newRule "1^N1" "1"
+  newRule "N1^1" "N1"
+
+  //Multiple operand power rules
+  newRule "(W1^W2)*W1" "W1^(W2+1)"
+  newRule "W1*(W1^W2)" "W1^(W2+1)"
+  newRule "(W1^W2)*(W1^W3)" "W1^(W2+W3)" 
+  newRule "(W1^W2)/W1" "W1^(W2-1)"
+  newRule "(W1^W2)/(W1^W3)" "W1^(W2-W3)"
+  newRule "(W1^W2)^W3" "W1^(W2*W3)"
+  newRule "(W2^W1)*(W3^W1)" "(W2*W3)^W1"
+  newRule "(W1*W2)^W3" "(W1^W3)*(W2^W3)"
+  newRule "(W1^W3)*(W2^W3)" "(W1*W2)^W3"
+  newRule "(W1/W2)^W3" "(W1^W3)/(W2^W3)" 
+  newRule "(W1^W3)/(W2^W3)" "(W1/W2)^W3"
+
+  //Yet to be classified (Lifting paranthesis)
   newRule "W1*(W1*W2)" "W2*(W1^2)"
-  newRule "W1+(W1+W2)" "W1*2+W2"
-  newRule "W1+(W1*W2)" "W1*(W2+1)"
-  newRule "W1*(W1^L1*W2)" "W2*W1^(L1+1)"
+  newRule "(W1*W2)*W1" "W2*(W1^2)"
+  newRule "W1+(W1+W2)" "W2+(W1*2)"
+  newRule "(W1+W2)+W1" "W2+(W1*2)"
+  //newRule "W1+(W1*W2)" "W1*(W2+1)"
+  ////newRule "W1*(W1^L1*W2)" "W2*W1^(L1+1)"
+
+  newRule "N1+(N1*L1)" "N1*(L1+1)"
+  newRule "(N1*L1)+N1" "N1*(L1+1)"
+  newRule "(N1*L1)-N1" "N1*(L1-1)"
   
-  newRule "(L1*N1)+N1" "(L1+1)*N1"
-  newRule "N1+(L1*N1)" "(L1+1)*N1"
+  newRule "(N1*L1)+(N1*L2)" "N1*(L1+L2)"
+  newRule "(N1*L1)-(N1*L2)" "N1*(L1-L2)"
+  //newRule "(W1*W2)+(W3*W2)" "(W1+W3)*W2"
+  //newRule "(W1*W2)*(W3*W2)" "(W1*W3)*(W2^2)"
+  //newRule "(W1+W2)+(W3+W2)" "(W1+W3)+(W2*2)"
+  //newRule "(L1*W1)/L1" "W1"
 
-  newRule "(W1*W2)+(W3*W2)" "(W1+W3)*W2"
-  newRule "(W1*W2)*(W3*W2)" "(W1*W3)*(W2^2)"
-  newRule "(W1+W2)+(W3+W2)" "(W1+W3)+(W2*2)"
-  newRule "(L1*W1)/L1" "W1"
-
-  newRule "W1*W2" "W2*W1"
-  newRule "W1+W2" "W2+W1"
+  //newRule "W1*W2" "W2*W1"
+  //newRule "W1+W2" "W2+W1"
 ]
 
 //Apply to entire ast
@@ -146,7 +178,7 @@ let reduce (ast:Expression) =
   let addUnique elem (perms:list<Expression>, seen:Set<Expression>) =
     if seen.Contains(elem) then (perms, seen)
     else (elem::perms, seen.Add elem)
-  let rec reduceCont (coll:list<Expression>) (seen:Set<Expression>) (leaf:list<Expression>) =
+  let rec reduceCont (coll:list<Expression>) (seen:Set<Expression>) (leaf:Set<Expression>) =
     if coll.Length > 0 then
       let curr = coll.[0]
       let (perms, seen) = (([], seen), rules) ||> List.fold (fun acc rule ->
@@ -155,14 +187,14 @@ let reduce (ast:Expression) =
         let transform = fun expr -> applyPattern expr pattern replacement
         let next = applyTransform curr transform
         (perms, seen) |> addUnique next
-      ) 
+      )
       let collapsed = applyTransform curr collapseConstants
       let (perms, seen) = (perms, seen) |> addUnique collapsed 
       let coll = List.append coll.[1..] perms
-      let leaf = if perms.Length = 0 then (curr::leaf) else leaf
+      let leaf = if perms.Length = 0 then leaf.Add curr else leaf      
       reduceCont coll seen leaf
-    else leaf
-  let res = reduceCont [ast] (set[ast]) []
+    else Set.toList leaf
+  let res = reduceCont [ast] (set[ast]) (set[ast])
   let depths = res |> List.map treeDepth
   let minDepth = depths |> List.min
   let filtered = (List.zip res depths) |> List.filter (fun (x, y) -> y <= minDepth)
