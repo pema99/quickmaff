@@ -4,7 +4,7 @@
 
 A simple terminal-based CAS tool
 
-# How to build with mono
+# How to build with mono and fsharpc
 ```sh
 git clone https://github.com/pema99/quickmaff.git
 cd quickmaff
