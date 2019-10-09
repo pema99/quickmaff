@@ -1,4 +1,5 @@
 #!/bin/sh
+mkdir -p bin
 cd deps/Sparse
 ./build.sh
 cp bin/sparse.dll ../../bin/
