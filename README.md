@@ -8,6 +8,7 @@ A simple terminal-based CAS tool
 ```sh
 git clone https://github.com/pema99/quickmaff.git
 cd quickmaff
+git submodule update --init
 chmod +x build.sh
 ./build.sh
 mono bin/qm.exe
