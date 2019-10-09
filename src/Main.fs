@@ -47,8 +47,10 @@ let main args =
       | Verbose -> verbose <- true
       | Debug -> debug <- true
       | _ -> ()
-  | Error(errors) -> errors |> List.iter (printfn "Error: %s")
-  
+  | Error(errors) ->
+    errors |> List.iter (printfn "Error: %s")
+    running <- false
+    
   //Greeting
   if not quiet && running then
     printfn "Welcome to QuickMaff."
