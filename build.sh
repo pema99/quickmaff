@@ -1,2 +1,6 @@
 #!/bin/sh
-cat build_list.txt | xargs -d '\n' fsharpc --nologo --out:bin/qm.exe
+cd deps/Sparse
+./build.sh
+cp bin/sparse.dll ../../bin/
+cd ../..
+cat build_list.txt | xargs -d '\n' fsharpc --nologo -r bin/sparse.dll --out:bin/qm.exe
